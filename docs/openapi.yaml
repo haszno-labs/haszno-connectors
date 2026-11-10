@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: |
     Haszno dropshipping price-automation SaaS API.
-    Authentication: Bearer token via `Authorization` header (ARFUTAR_API_KEY),
-    or HTTP Basic via `ARFUTAR_BASIC="user:pass"` env fallback.
+    Authentication: Bearer token via `Authorization` header (HASZNO_API_KEY),
+    or HTTP Basic via `HASZNO_BASIC="user:pass"` env fallback.
     All money values are whole forints (integers). `costNet` is VAT-exclusive; prices are gross.
 servers:
   - url: https://arfutar-demo.vercel.app

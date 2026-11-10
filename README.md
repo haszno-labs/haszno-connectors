@@ -8,8 +8,12 @@ The hosted service (haszno.hu) handles pricing automation, the supplier catalogu
 
 ## Install
 
+The package is not published to npm yet. Use it from a clone:
+
 ```bash
-npm install @haszno/connectors
+git clone https://github.com/haszno-labs/haszno-connectors.git
+cd haszno-connectors
+npm install && npm run build
 ```
 
 ## Build & Test

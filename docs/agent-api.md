@@ -5,8 +5,8 @@ A Haszno egy magyar SaaS dropshipping árazás-automatizáló. Ez a dokumentum a
 az ügynök lekérheti a partnerkatekógust, termékeket és árakat, kezelhet árajánlatokat,
 futtathat szabályokat, és figyelemmel kísérheti a rendeléseket.
 
-**Alap URL:** `ARFUTAR_API_URL` környezeti változóból (alapértelmezett: `https://arfutar-demo.vercel.app`)  
-**Hitelesítés:** `Authorization: Bearer <ARFUTAR_API_KEY>` fejléc; fallback: `ARFUTAR_BASIC="user:pass"` → HTTP Basic  
+**Alap URL:** `HASZNO_API_URL` környezeti változóból (alapértelmezett: `https://arfutar-demo.vercel.app`)  
+**Hitelesítés:** `Authorization: Bearer <HASZNO_API_KEY>` fejléc; fallback: `HASZNO_BASIC="user:pass"` → HTTP Basic  
 **Pénznemek:** minden ár egész forint (bruttó vagy nettó, az endpoint leírásában jelölve)
 
 > **Fontos:** A network/supplier-view végpont kizárólag összesített, tájékoztató jellegű
