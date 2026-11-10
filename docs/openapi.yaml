@@ -1,0 +1,1460 @@
+openapi: 3.1.0
+info:
+  title: Haszno API
+  version: 1.0.0
+  description: |
+    Haszno dropshipping price-automation SaaS API.
+    Authentication: Bearer token via `Authorization` header (ARFUTAR_API_KEY),
+    or HTTP Basic via `ARFUTAR_BASIC="user:pass"` env fallback.
+    All money values are whole forints (integers). `costNet` is VAT-exclusive; prices are gross.
+servers:
+  - url: https://arfutar-demo.vercel.app
+    description: Demo server
+
+security:
+  - bearerAuth: []
+  - basicAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Hungarian error message
+
+    MarginResult:
+      type: object
+      properties:
+        priceGross:
+          type: integer
+        marginNet:
+          type: integer
+        marginPct:
+          type: number
+
+    Product:
+      type: object
+      required: [id, supplierId, sku, name, costNet, stock, priceGross, listed, updatedAt]
+      properties:
+        id:
+          type: integer
+        supplierId:
+          type: integer
+        sku:
+          type: string
+        name:
+          type: string
+        costNet:
+          type: integer
+          description: Wholesale cost, VAT-exclusive (net), forints
+        stock:
+          type: integer
+        rrpGross:
+          type: integer
+          nullable: true
+          description: Supplier's recommended retail price (gross)
+        marketMinGross:
+          type: integer
+          nullable: true
+          description: Cheapest comparable offer on the market (gross)
+        marketShop:
+          type: string
+          nullable: true
+        priceGross:
+          type: integer
+          description: Current selling price (gross)
+        listed:
+          type: boolean
+        trendKeyword:
+          type: string
+          nullable: true
+        trendKeywordEn:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        supplierName:
+          type: string
+        current:
+          $ref: '#/components/schemas/MarginResult'
+        recommended:
+          $ref: '#/components/schemas/MarginResult'
+
+    Settings:
+      type: object
+      required: [id, undercutPct, minMarginPct, vatPct, automationPaused]
+      properties:
+        id:
+          type: integer
+          enum: [1]
+        undercutPct:
+          type: number
+          minimum: 0
+          maximum: 50
+        minMarginPct:
+          type: number
+          minimum: 0
+          maximum: 90
+        vatPct:
+          type: number
+          minimum: 0
+          maximum: 50
+        automationPaused:
+          type: boolean
+
+    Supplier:
+      type: object
+      required: [id, name, orderMode, network, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        orderMode:
+          type: string
+          enum: [simulated, email]
+        email:
+          type: string
+          nullable: true
+        network:
+          type: boolean
+        category:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        shopUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    OrderItem:
+      type: object
+      properties:
+        orderId:
+          type: integer
+        qty:
+          type: integer
+        priceGross:
+          type: integer
+        name:
+          type: string
+        sku:
+          type: string
+
+    OrderEvent:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        text:
+          type: string
+
+    Order:
+      type: object
+      required: [id, externalId, customerName, address, status, totalGross, events, createdAt]
+      properties:
+        id:
+          type: integer
+        externalId:
+          type: string
+        customerName:
+          type: string
+        address:
+          type: string
+        status:
+          type: string
+          enum: [received, forwarded, shipped, error]
+        supplierOrderId:
+          type: string
+          nullable: true
+        trackingNumber:
+          type: string
+          nullable: true
+        totalGross:
+          type: integer
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderEvent'
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+
+    RuleCondition:
+      type: object
+      required: [field, op]
+      properties:
+        field:
+          type: string
+        op:
+          type: string
+          enum: [lt, lte, gt, gte, eq, neq, changed]
+        value:
+          oneOf:
+            - type: number
+            - type: string
+            - type: 'null'
+
+    RuleAction:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+
+    Rule:
+      type: object
+      required: [id, name, enabled, trigger, conditions, actions, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        enabled:
+          type: boolean
+        trigger:
+          type: string
+          enum: [feed_import, market_price, order_received, stock_change, manual]
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleAction'
+        template:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    RuleTemplate:
+      type: object
+      required: [key, name, description, trigger, conditions, actions]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        trigger:
+          type: string
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleAction'
+
+    RuleRun:
+      type: object
+      required: [id, ruleId, trigger, summary, at]
+      properties:
+        id:
+          type: integer
+        ruleId:
+          type: integer
+        ruleName:
+          type: string
+          nullable: true
+        trigger:
+          type: string
+        productId:
+          type: integer
+          nullable: true
+        summary:
+          type: string
+        at:
+          type: string
+          format: date-time
+
+    Proposal:
+      type: object
+      required: [id, productId, oldPriceGross, proposedPriceGross, reason, source, status, createdAt]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        productName:
+          type: string
+          nullable: true
+        productSku:
+          type: string
+          nullable: true
+        oldPriceGross:
+          type: integer
+        proposedPriceGross:
+          type: integer
+        reason:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, rolled_back]
+        batchId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    NetworkSupplier:
+      allOf:
+        - $ref: '#/components/schemas/Supplier'
+        - type: object
+          properties:
+            connected:
+              type: boolean
+            productCount:
+              type: integer
+            avgResellerMarginPct:
+              type: number
+              nullable: true
+
+    NetworkProduct:
+      type: object
+      required: [id, supplierId, sku, name, wholesaleNet, stock, updatedAt]
+      properties:
+        id:
+          type: integer
+        supplierId:
+          type: integer
+        sku:
+          type: string
+        name:
+          type: string
+        ean:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        wholesaleNet:
+          type: integer
+        rrpGross:
+          type: integer
+          nullable: true
+        stock:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+        potentialMargin:
+          $ref: '#/components/schemas/MarginResult'
+
+    ResellerStats:
+      type: object
+      properties:
+        resellerCount:
+          type: integer
+        minGross:
+          type: integer
+          nullable: true
+        avgGross:
+          type: integer
+          nullable: true
+        maxGross:
+          type: integer
+          nullable: true
+        belowRrp:
+          type: integer
+        lossCount:
+          type: integer
+        saturation:
+          type: integer
+
+    Stats:
+      type: object
+      properties:
+        products:
+          type: integer
+        losing:
+          type: integer
+        overMarket:
+          type: integer
+        toFix:
+          type: integer
+        orders:
+          type: integer
+
+    Impact:
+      type: object
+      properties:
+        days:
+          type: integer
+        extraProfit:
+          type: integer
+        baseline:
+          type: integer
+        pctGain:
+          type: number
+        orders:
+          type: integer
+        autoForwardedOrders:
+          type: integer
+
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /api/settings:
+    get:
+      operationId: getSettings
+      summary: Get pricing rules
+      tags: [settings]
+      responses:
+        '200':
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+    put:
+      operationId: updateSettings
+      summary: Update pricing rules
+      tags: [settings]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [undercutPct, minMarginPct, vatPct]
+              properties:
+                undercutPct:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+                minMarginPct:
+                  type: number
+                  minimum: 0
+                  maximum: 90
+                vatPct:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+
+  /api/products:
+    get:
+      operationId: listProducts
+      summary: List products
+      tags: [products]
+      parameters:
+        - name: all
+          in: query
+          schema:
+            type: string
+            enum: ['1']
+          description: Include unlisted catalogue products
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  /api/products/apply-prices:
+    post:
+      operationId: applyPrices
+      summary: Apply recommended prices
+      tags: [products]
+      x-write: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changed:
+                    type: integer
+                  total:
+                    type: integer
+
+  /api/products/{id}:
+    patch:
+      operationId: updateProduct
+      summary: Update product market data or price
+      tags: [products]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                marketMinGross:
+                  type: integer
+                  nullable: true
+                marketShop:
+                  type: string
+                  nullable: true
+                priceGross:
+                  type: integer
+      responses:
+        '200':
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/products/{id}/listing:
+    post:
+      operationId: setProductListing
+      summary: List or unlist a product
+      tags: [products]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listed]
+              properties:
+                listed:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/products/{id}/ai-description:
+    post:
+      operationId: generateAiDescription
+      summary: Generate AI marketing description
+      tags: [products]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Generated text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+        '503':
+          description: AI unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/impact:
+    get:
+      operationId: getImpact
+      summary: Haszon-mérő — extra profit from Haszno
+      tags: [stats]
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Impact metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Impact'
+
+  /api/suppliers:
+    get:
+      operationId: listSuppliers
+      summary: List all suppliers
+      tags: [suppliers]
+      responses:
+        '200':
+          description: Suppliers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Supplier'
+
+  /api/feeds/import:
+    post:
+      operationId: importFeed
+      summary: Import supplier product feed
+      tags: [feeds]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplierId, format, content]
+              properties:
+                supplierId:
+                  type: integer
+                format:
+                  type: string
+                  enum: [csv, xml]
+                content:
+                  type: string
+                  maxLength: 5000000
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: integer
+                  updated:
+                    type: integer
+                  total:
+                    type: integer
+
+  /api/market-prices/import:
+    post:
+      operationId: importMarketPrices
+      summary: Import market comparison prices
+      tags: [feeds]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 5000000
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matched:
+                    type: integer
+                  total:
+                    type: integer
+
+  /feed/arukereso.xml:
+    get:
+      operationId: getFeedArukereso
+      summary: Árukereső XML product feed
+      tags: [feeds]
+      responses:
+        '200':
+          description: XML feed
+          content:
+            application/xml:
+              schema:
+                type: string
+
+  /feed/google.xml:
+    get:
+      operationId: getFeedGoogle
+      summary: Google Merchant Center XML product feed
+      tags: [feeds]
+      responses:
+        '200':
+          description: XML feed
+          content:
+            application/xml:
+              schema:
+                type: string
+
+  /api/orders:
+    get:
+      operationId: listOrders
+      summary: List last 50 orders
+      tags: [orders]
+      responses:
+        '200':
+          description: Orders with items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+
+  /api/webhooks/order:
+    post:
+      operationId: receiveOrder
+      summary: Receive a new order (shop webhook)
+      tags: [orders]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [externalId, customerName, address, items]
+              properties:
+                externalId:
+                  type: string
+                  maxLength: 64
+                customerName:
+                  type: string
+                  maxLength: 120
+                address:
+                  type: string
+                  maxLength: 300
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [sku, qty]
+                    properties:
+                      sku:
+                        type: string
+                      qty:
+                        type: integer
+                        minimum: 1
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+
+  /api/demo/order:
+    post:
+      operationId: createDemoOrder
+      summary: Create a random demo order
+      tags: [orders]
+      x-write: true
+      responses:
+        '201':
+          description: Demo order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+
+  /api/orders/{id}/ship:
+    post:
+      operationId: shipOrder
+      summary: Mark an order as shipped
+      tags: [orders]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/stats:
+    get:
+      operationId: getStats
+      summary: Dashboard summary numbers
+      tags: [stats]
+      responses:
+        '200':
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+
+  /api/recommendations:
+    get:
+      operationId: getRecommendations
+      summary: AI product idea shortlist
+      tags: [ideas]
+      responses:
+        '200':
+          description: Recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anchor:
+                    type: string
+                  geo:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+
+  /api/trends/keywords:
+    post:
+      operationId: fillTrendKeywords
+      summary: Fill missing trend keywords via AI
+      tags: [ideas]
+      x-write: true
+      responses:
+        '200':
+          description: Updated count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: integer
+
+  /api/rules/templates:
+    get:
+      operationId: listRuleTemplates
+      summary: List built-in rule templates
+      tags: [rules]
+      responses:
+        '200':
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RuleTemplate'
+
+  /api/rules/run-all:
+    post:
+      operationId: runAllRules
+      summary: Run all enabled manual-trigger rules
+      tags: [rules]
+      x-write: true
+      responses:
+        '200':
+          description: Run result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/rules/trigger:
+    post:
+      operationId: triggerRules
+      summary: Fire a named trigger
+      tags: [rules]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trigger]
+              properties:
+                trigger:
+                  type: string
+                productIds:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: Trigger result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/rules:
+    get:
+      operationId: listRules
+      summary: List all rules
+      tags: [rules]
+      responses:
+        '200':
+          description: Rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rule'
+    post:
+      operationId: createRule
+      summary: Create a rule
+      tags: [rules]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, trigger, actions]
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+                enabled:
+                  type: boolean
+                  default: true
+                trigger:
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RuleCondition'
+                actions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RuleAction'
+                  minItems: 1
+                template:
+                  type: string
+                  nullable: true
+      responses:
+        '201':
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+
+  /api/rules/{id}:
+    patch:
+      operationId: updateRule
+      summary: Update a rule
+      tags: [rules]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                enabled:
+                  type: boolean
+                trigger:
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RuleCondition'
+                actions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RuleAction'
+      responses:
+        '200':
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+    delete:
+      operationId: deleteRule
+      summary: Delete a rule
+      tags: [rules]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+
+  /api/rules/{id}/run:
+    post:
+      operationId: runRule
+      summary: Manually run a single rule
+      tags: [rules]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Run result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/rule-runs:
+    get:
+      operationId: listRuleRuns
+      summary: Rule execution log
+      tags: [rules]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 30
+      responses:
+        '200':
+          description: Rule runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RuleRun'
+
+  /api/proposals:
+    get:
+      operationId: listProposals
+      summary: List price proposals
+      tags: [proposals]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, rolled_back]
+            default: pending
+      responses:
+        '200':
+          description: Proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Proposal'
+
+  /api/proposals/approve:
+    post:
+      operationId: approveProposals
+      summary: Approve price proposals
+      tags: [proposals]
+      x-write: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: Approval result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batchId:
+                    type: string
+                    nullable: true
+                  applied:
+                    type: integer
+        '409':
+          description: Automation paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/proposals/reject:
+    post:
+      operationId: rejectProposals
+      summary: Reject price proposals
+      tags: [proposals]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: Reject result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rejected:
+                    type: integer
+
+  /api/proposals/rollback:
+    post:
+      operationId: rollbackProposals
+      summary: Roll back an approved batch
+      tags: [proposals]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [batchId]
+              properties:
+                batchId:
+                  type: string
+      responses:
+        '200':
+          description: Rollback result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rolledBack:
+                    type: integer
+
+  /api/automation:
+    get:
+      operationId: getAutomation
+      summary: Get automation kill switch state
+      tags: [rules]
+      responses:
+        '200':
+          description: Automation state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paused:
+                    type: boolean
+    put:
+      operationId: setAutomation
+      summary: Enable/disable automation kill switch
+      tags: [rules]
+      x-write: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paused]
+              properties:
+                paused:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paused:
+                    type: boolean
+
+  /api/network/suppliers:
+    get:
+      operationId: listNetworkSuppliers
+      summary: List network suppliers
+      tags: [network]
+      responses:
+        '200':
+          description: Network suppliers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NetworkSupplier'
+
+  /api/network/suppliers/{id}/products:
+    get:
+      operationId: getNetworkSupplierProducts
+      summary: Get network supplier catalogue
+      tags: [network]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Network products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NetworkProduct'
+
+  /api/network/suppliers/{id}/connect:
+    post:
+      operationId: connectNetworkSupplier
+      summary: Connect to a network supplier and import catalogue
+      tags: [network]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Connection result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  imported:
+                    type: integer
+                  skipped:
+                    type: integer
+
+  /api/network/suppliers/{id}/disconnect:
+    post:
+      operationId: disconnectNetworkSupplier
+      summary: Disconnect from a network supplier
+      tags: [network]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Disconnection result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  /api/network/suppliers/{id}/sync:
+    post:
+      operationId: syncNetworkSupplier
+      summary: Sync cost and stock from network supplier
+      tags: [network]
+      x-write: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  costChanges:
+                    type: integer
+                  stockOuts:
+                    type: integer
+                  total:
+                    type: integer
+
+  /api/network/supplier-view/{supplierId}:
+    get:
+      operationId: getNetworkSupplierView
+      summary: Aggregated reseller price stats (supplier view)
+      description: |
+        Read-only. Legal note: informational market observation data only.
+        Suppliers may observe resale prices but may not set mandatory resale prices (GVH / Tpvt. 11. §).
+      tags: [network]
+      parameters:
+        - name: supplierId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Supplier view
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  supplier:
+                    type: object
+                  products:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/ResellerStats'
+                        - type: object
+                          properties:
+                            id:
+                              type: integer
+                            sku:
+                              type: string
+                            name:
+                              type: string
