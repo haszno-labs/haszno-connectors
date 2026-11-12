@@ -1,6 +1,6 @@
 # @haszno/connectors
 
-> _A Haszno dropshipping platform nyílt forrású összekötő-csomagja._
+> _The open-source connector package of the Haszno dropshipping platform._
 
 TypeScript shop-platform adapters (WooCommerce, Shopify, UNAS, Shoprenter, Medusa), a supplier feed parser, and product feed exporters for the [Haszno](https://haszno.hu) dropshipping network.
 
